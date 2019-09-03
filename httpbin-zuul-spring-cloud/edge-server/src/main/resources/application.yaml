@@ -1,0 +1,8 @@
+server:
+  port: 8081
+
+zuul:
+  routes:
+    httpbin-anything:
+      path: /anything/**
+      url: http://localhost:8080/anything

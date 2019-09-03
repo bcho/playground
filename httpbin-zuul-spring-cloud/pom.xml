@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>fun.build4.playground.httpbin</groupId>
+  <artifactId>httpbin-zuul-spring-cloud</artifactId>
+  <version>1.0-SNAPSHOT</version>
+  <modules>
+    <module>api-server</module>
+    <module>edge-server</module>
+  </modules>
+  <packaging>pom</packaging>
+
+  <parent>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <groupId>org.springframework.boot</groupId>
+    <version>2.1.7.RELEASE</version>
+    <relativePath/>
+  </parent>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <configuration>
+            <source>${maven.compiler.release}</source>
+            <target>${maven.compiler.release}</target>
+          </configuration>
+          <groupId>org.apache.maven.plugins</groupId>
+          <version>${maven.compiler.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>io.repaint.maven</groupId>
+          <artifactId>tiles-maven-plugin</artifactId>
+          <version>2.12</version>
+          <extensions>true</extensions>
+          <configuration>
+            <tiles>
+              <tile>io.ebean.tile:enhancement:11.42.1</tile>
+            </tiles>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <version>${lombok.version}</version>
+        <scope>provided</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <properties>
+    <java.version>12</java.version>
+    <jdk.version>12</jdk.version>
+    <maven.compiler.source>${jdk.version}</maven.compiler.source>
+    <maven.compiler.target>${jdk.version}</maven.compiler.target>
+    <maven.compiler.version>3.8.0</maven.compiler.version>
+    <maven.compiler.release>11</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+</project>
