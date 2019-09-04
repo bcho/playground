@@ -4,6 +4,7 @@ import com.google.gson.Gson
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.buffer.Unpooled
 import io.netty.channel.*
+import io.netty.channel.epoll.EpollServerSocketChannel
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.SocketChannel
 import io.netty.channel.socket.nio.NioServerSocketChannel
@@ -22,7 +23,7 @@ const val HTTP_HANDLER: String = "handler_http"
 const val HTTP_RESPONSE_CONTENT_TYPE: String = "application/json"
 const val HTTP_HEADER_X_FORWARDED_FOR = "X-Forwarded-For"
 
-class NettyServerApplication(val port: Int) {
+class NettyServerApplication(val port: Int, val useEpoll: Boolean) {
 
     /**
      * Start the server.
@@ -33,16 +34,23 @@ class NettyServerApplication(val port: Int) {
         try {
             val serverBootstrap = ServerBootstrap()
             serverBootstrap.group(bossGroup, workerGroup)
-                .channel(NioServerSocketChannel::class.java)
-                .childHandler(object : ChannelInitializer<SocketChannel>() {
-                    override fun initChannel(ch: SocketChannel?) {
-                        logger.info("received channel")
+            if (useEpoll) {
+                logger.info("using epoll socket channel")
+                serverBootstrap.channel(EpollServerSocketChannel::class.java)
+            } else {
+                logger.info("using nio socket channel")
+                serverBootstrap.channel(NioServerSocketChannel::class.java)
+            }
 
-                        ch!!.pipeline().addLast(CODEC_HANDLER, HttpServerCodec())
-                            .addLast(HttpObjectAggregator(10 * 1024 * 1024)) // 10Mb
-                            .addLast(HTTP_HANDLER, HttpHandler())
-                    }
-                })
+            serverBootstrap.childHandler(object : ChannelInitializer<SocketChannel>() {
+                override fun initChannel(ch: SocketChannel?) {
+                    logger.info("received channel")
+
+                    ch!!.pipeline().addLast(CODEC_HANDLER, HttpServerCodec())
+                        .addLast(HttpObjectAggregator(10 * 1024 * 1024)) // 10Mb
+                        .addLast(HTTP_HANDLER, HttpHandler())
+                }
+            })
                 .option(ChannelOption.SO_BACKLOG, 1024)
                 .childOption(ChannelOption.SO_KEEPALIVE, true)
 
@@ -61,11 +69,16 @@ class NettyServerApplication(val port: Int) {
 
 fun main(args: Array<String>) {
     var port = 8080
+    var useEpoll = false
+
     if (args.size > 0) {
-        port = Integer.parseInt(args[0])
+        port = args[0].toInt()
+    }
+    if (args.size > 1) {
+        useEpoll = args[1].toBoolean()
     }
 
-    NettyServerApplication(port).start()
+    NettyServerApplication(port, useEpoll).start()
 }
 
 class HttpHandler : ChannelInboundHandlerAdapter() {
