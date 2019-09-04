@@ -43,7 +43,7 @@ class NettyServerApplication(val port: Int) {
                             .addLast(HTTP_HANDLER, HttpHandler())
                     }
                 })
-                .option(ChannelOption.SO_BACKLOG, 128)
+                .option(ChannelOption.SO_BACKLOG, 1024)
                 .childOption(ChannelOption.SO_KEEPALIVE, true)
 
             // bind & start
