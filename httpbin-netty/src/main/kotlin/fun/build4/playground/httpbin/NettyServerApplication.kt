@@ -4,6 +4,7 @@ import com.google.gson.Gson
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.buffer.Unpooled
 import io.netty.channel.*
+import io.netty.channel.epoll.EpollEventLoopGroup
 import io.netty.channel.epoll.EpollServerSocketChannel
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.SocketChannel
@@ -29,9 +30,18 @@ class NettyServerApplication(val port: Int, val useEpoll: Boolean) {
      * Start the server.
      */
     fun start() {
-        val bossGroup = NioEventLoopGroup()
-        val workerGroup = NioEventLoopGroup()
+        var bossGroup: EventLoopGroup
+        var workerGroup: EventLoopGroup
+        if (useEpoll) {
+            bossGroup = EpollEventLoopGroup()
+            workerGroup = EpollEventLoopGroup()
+        } else {
+            bossGroup = NioEventLoopGroup()
+            workerGroup = NioEventLoopGroup()
+        }
+
         try {
+
             val serverBootstrap = ServerBootstrap()
             serverBootstrap.group(bossGroup, workerGroup)
             if (useEpoll) {
