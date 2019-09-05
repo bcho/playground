@@ -62,4 +62,42 @@ resource "alicloud_key_pair_attachment" "keypair_attachment" {
   ]
 }
 
-# TODO: provision two servers
+resource "null_resource" "provision_app" {
+  triggers = {
+    app_private_ip = "${alicloud_instance.app.private_ip}",
+    tester_private_ip = "${alicloud_instance.tester.private_ip}"
+    force = "${var.ansible_force_run}"
+  }
+
+  provisioner "local-exec" {
+    command = <<EOF
+ansible-playbook \
+    -u '${var.ansible_user}' \
+    -i '${alicloud_instance.app.public_ip},' \
+    -e 'ansible_ssh_extra_args="-o StrictHostKeyChecking=no"' \
+    -e 'app_private_ip=${alicloud_instance.app.private_ip}' \
+    -e 'tester_private_ip=${alicloud_instance.tester.private_ip}' \
+    ansible/app.yaml
+EOF
+  }
+}
+
+resource "null_resource" "provision_tester" {
+  triggers = {
+    app_private_ip = "${alicloud_instance.app.private_ip}",
+    tester_private_ip = "${alicloud_instance.tester.private_ip}"
+    force = "${var.ansible_force_run}"
+  }
+
+  provisioner "local-exec" {
+    command = <<EOF
+ansible-playbook \
+    -u '${var.ansible_user}' \
+    -i '${alicloud_instance.tester.public_ip},' \
+    -e 'ansible_ssh_extra_args="-o StrictHostKeyChecking=no"' \
+    -e 'app_private_ip=${alicloud_instance.app.private_ip}' \
+    -e 'tester_private_ip=${alicloud_instance.tester.private_ip}' \
+    ansible/tester.yaml
+EOF
+  }
+}

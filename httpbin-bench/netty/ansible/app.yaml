@@ -1,0 +1,28 @@
+---
+- hosts: all
+  become: yes
+
+  tasks:
+    - name: Set hostname
+      lineinfile:
+        path: /etc/hosts
+        line: |
+          {{ app_private_ip }} httpbin-app
+          {{ tester_private_ip }} httpbin-tester
+        state: present
+
+    - name: Install packages
+      package:
+        name: '{{ item }}'
+        state: present
+      with_items:
+        - htop
+        - iftop
+        - default-jre
+        - openjdk-11-jre-headless
+        - tmux
+
+    - name: Prepare app dir
+      file:
+        path: /app
+        state: directory

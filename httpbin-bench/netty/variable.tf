@@ -83,3 +83,15 @@ variable "keypair_name" {
   type = string
   default = "httpbin-bench"
 }
+
+variable "ansible_user" {
+  description = "user to run ansible provision"
+  type = string
+  default = "root"
+}
+
+variable "ansible_force_run" {
+  description = "override to force rerun provision"
+  type = string
+  default = ""
+}
