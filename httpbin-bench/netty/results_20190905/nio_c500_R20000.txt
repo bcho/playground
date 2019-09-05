@@ -1,0 +1,16 @@
+Running 1m test @ http://httpbin-app:8080
+  8 threads and 500 connections
+  Thread calibration: mean lat.: 1139.484ms, rate sampling interval: 4468ms
+  Thread calibration: mean lat.: 1221.713ms, rate sampling interval: 4444ms
+  Thread calibration: mean lat.: 1176.432ms, rate sampling interval: 4677ms
+  Thread calibration: mean lat.: 1132.894ms, rate sampling interval: 4399ms
+  Thread calibration: mean lat.: 1178.624ms, rate sampling interval: 4521ms
+  Thread calibration: mean lat.: 1158.500ms, rate sampling interval: 4595ms
+  Thread calibration: mean lat.: 1250.217ms, rate sampling interval: 4542ms
+  Thread calibration: mean lat.: 1144.266ms, rate sampling interval: 4509ms
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     9.21s     3.88s   17.73s    58.06%
+    Req/Sec     1.83k    12.51     1.86k    72.62%
+  875826 requests in 1.00m, 164.54MB read
+Requests/sec:  14597.32
+Transfer/sec:      2.74MB

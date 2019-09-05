@@ -6,7 +6,9 @@
     - name: Set hostname
       lineinfile:
         path: /etc/hosts
-        line: '{{ app_private_ip }} httpbin-app\n{{ tester_private_ip }} httpbin-tester'
+        line: |
+          {{ app_private_ip }} httpbin-app
+          {{ tester_private_ip }} httpbin-tester
         state: present
 
     - name: Prepare app dir
