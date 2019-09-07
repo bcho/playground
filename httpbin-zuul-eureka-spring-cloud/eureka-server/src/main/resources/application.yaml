@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: ${springboot.app.name:httpbin-eureka-server}
+
+server:
+  port: 7071
+
+eureka:
+  instance:
+    hostname: ${springboot.app.name:httpbin-eureka-server}
+  client:
+    registerWithEureka: false
+    fetchRegistry: false
