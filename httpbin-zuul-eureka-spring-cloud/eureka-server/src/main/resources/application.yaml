@@ -6,8 +6,12 @@ server:
   port: 7071
 
 eureka:
+  server:
+    enable-self-preservation: false
   instance:
     hostname: ${springboot.app.name:httpbin-eureka-server}
   client:
     registerWithEureka: false
     fetchRegistry: false
+    serviceUrl:
+      defaultZone: ${eureka.servers:http://localhost:7071/eureka/}

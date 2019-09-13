@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: ${springboot.app.name:httpbin-anything-server}
+
+server:
+  port: 8081
+
+eureka:
+  instance:
+    hostname: ${springboot.app.name:httpbin-anything-server}
+    leaseRenewalIntervalInSeconds: 3
+  client:
+    registerWithEureka: true
+    fetchRegistry: true
+    serviceUrl:
+      defaultZone: ${eureka.servers:http://localhost:7071/eureka/}
