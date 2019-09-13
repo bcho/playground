@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: ${springboot.app.name:httpbin-zuul-server}
+
+server:
+  port: 9090
+
+eureka:
+  instance:
+    hostname: ${springboot.app.name:httpbin-zuul-server}
+    leaseRenewalIntervalInSeconds: 3
+    # for testing
+    preferIpAddress: true
+  client:
+    registerWithEureka: true
+    fetchRegistry: true
+    serviceUrl:
+      defaultZone: ${eureka.servers:http://localhost:7071/eureka/}
+
+zuul:
+  routes:
+    httpbin-anything:
+      # keep the `/anything` prefix
+      stripPrefix: false
+      path: /anything/**
+      serviceId: HTTPBIN-ANYTHING-SERVER

@@ -9,6 +9,8 @@ eureka:
   instance:
     hostname: ${springboot.app.name:httpbin-anything-server}
     leaseRenewalIntervalInSeconds: 3
+    # for testing
+    preferIpAddress: true
   client:
     registerWithEureka: true
     fetchRegistry: true
