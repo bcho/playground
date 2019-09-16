@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: httpbin-zuul-server
+
+  cloud:
+    consul:
+      discovery:
+        prefer-ip-address: true
+      host: ${consul.server_host:localhost}
+      port: ${consul.server_port:8500}
+
+server:
+  port: 9090
+
+zuul:
+  routes:
+    httpbin-anything:
+      # keep the `/anything` prefix
+      stripPrefix: false
+      path: /anything/**
+      serviceId: httpbin-anything-server

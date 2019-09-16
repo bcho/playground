@@ -1,0 +1,15 @@
+spring:
+  application:
+    name: httpbin-anything-server
+
+  cloud:
+    consul:
+      discovery:
+        prefer-ip-address: true
+        healthCheckPath: /anything/health
+      host: ${consul.server_host:localhost}
+      port: ${consul.server_port:8500}
+
+
+server:
+  port: 8081
