@@ -1,0 +1,19 @@
+version: '3'
+
+services:
+  nginx-lb:
+    image: docker.pkg.github.com/bcho/playground/nginx-consul-template:latest
+    networks:
+      - consul-demo
+    ports:
+      - "8082:80"
+    environment:
+      - CONSUL_URL=consul-server-bootstrap:8500
+      - CONSUL_TEMPLATE=/nginx.consul_template:/etc/nginx/conf.d/service.conf
+      - CONSUL_ACTION=service nginx reload
+    volumes:
+      - ./nginx.consul_template:/nginx.consul_template
+
+networks:
+  consul-demo:
+    external: true

@@ -24,3 +24,4 @@ services:
 
 networks:
   consul-demo:
+    external: true
