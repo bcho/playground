@@ -22,8 +22,8 @@ func DefaultConfig() *Config {
 }
 
 // CreateNode creates a raft counter node from config.
-func (c *Config) CreateNode() (*counterNode, error) {
-	node := &counterNode{
+func (c *Config) CreateNode() (*Node, error) {
+	node := &Node{
 		config: c,
 	}
 	if node.config == nil {
@@ -37,19 +37,19 @@ func (c *Config) CreateNode() (*counterNode, error) {
 	return node, nil
 }
 
-type counterNode struct {
+type Node struct {
 	config *Config
 
-	fsm  *fsmServer
-	raft *raft.Raft
+	fsm        *fsmServer
+	raft       *raft.Raft
+	raftConfig *raft.Config
 }
 
-func (n *counterNode) setupRaft() error {
+func (n *Node) setupRaft() error {
 	var err error
 
-	raftConfig := raft.DefaultConfig()
-	raftConfig.ProtocolVersion = raft.ProtocolVersionMax
-	raftConfig.StartAsLeader = true
+	n.raftConfig = raft.DefaultConfig()
+	n.raftConfig.ProtocolVersion = raft.ProtocolVersionMax
 
 	// setup transport layer
 	bindAddr := n.config.RaftBindAddr
@@ -69,7 +69,7 @@ func (n *counterNode) setupRaft() error {
 		return err
 	}
 
-	raftConfig.LocalID = raft.ServerID(transport.LocalAddr())
+	n.raftConfig.LocalID = raft.ServerID(transport.LocalAddr())
 
 	// setup fsm
 	n.fsm = newFSM()
@@ -88,8 +88,30 @@ func (n *counterNode) setupRaft() error {
 		snap = raft.NewInmemSnapshotStore()
 	}
 
+	// FIXME: join
+	{
+		hasState, err := raft.HasExistingState(log, stable, snap)
+		if err != nil {
+			return err
+		}
+		if !hasState {
+			bootstrapConfig := raft.Configuration{
+				Servers: []raft.Server{
+					raft.Server{
+						ID:      n.raftConfig.LocalID,
+						Address: transport.LocalAddr(),
+					},
+				},
+			}
+			err = raft.BootstrapCluster(n.raftConfig, log, stable, snap, transport, bootstrapConfig)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	n.raft, err = raft.NewRaft(
-		raftConfig,
+		n.raftConfig,
 		n.fsm,
 		log,
 		stable,
@@ -99,5 +121,6 @@ func (n *counterNode) setupRaft() error {
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
