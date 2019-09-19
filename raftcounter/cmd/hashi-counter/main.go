@@ -24,6 +24,11 @@ func main() {
 	}
 
 	for range time.Tick(time.Duration(2) * time.Second) {
+		if server.Leader() == "" {
+			fmt.Println("server is not ready...")
+			continue
+		}
+
 		updated, err := server.Incr()
 		if err != nil {
 			panic(fmt.Errorf("incr counter: %v", err))

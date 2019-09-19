@@ -127,6 +127,10 @@ func (s *Server) setupRaft() error {
 	return nil
 }
 
+func (s *Server) Leader() string {
+	return string(s.raft.Leader())
+}
+
 func decodeCounterApplyResponse(fut raft.ApplyFuture) (int64, error) {
 	err := fut.Error()
 	if err != nil {
