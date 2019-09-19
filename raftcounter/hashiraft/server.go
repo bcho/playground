@@ -4,15 +4,26 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/hashicorp/raft"
+	raftboltdb "github.com/hashicorp/raft-boltdb"
+)
+
+const (
+	// NOTE: copied from consul
+	snapshotsRetained = 2
+	raftLogCacheSize  = 512
 )
 
 // Config defines the configurations for the counter node.
 type Config struct {
 	// RaftBindAddr defines the bind address for raft protocol.
 	RaftBindAddr string
+
+	// DataDir defines the data dir for the server.
+	DataDir string
 }
 
 // DefaultConfig creates default config.
@@ -82,12 +93,34 @@ func (s *Server) setupRaft() error {
 		stable raft.StableStore
 		snap   raft.SnapshotStore
 	)
-	// TODO: use persistent store
-	{
+	if s.config.DataDir == "" {
+		// dev mode
 		store := raft.NewInmemStore()
 		stable = store
 		log = store
 		snap = raft.NewInmemSnapshotStore()
+	} else {
+		dir, err := prepareDataDir(s.config.DataDir)
+		if err != nil {
+			return err
+		}
+
+		store, err := raftboltdb.NewBoltStore(filepath.Join(dir, "raft.db"))
+		if err != nil {
+			return err
+		}
+		stable = store
+
+		log, err = raft.NewLogCache(raftLogCacheSize, store)
+		if err != nil {
+			return err
+		}
+
+		// TODO: logger
+		snap, err = raft.NewFileSnapshotStore(dir, snapshotsRetained, os.Stderr)
+		if err != nil {
+			return err
+		}
 	}
 
 	// FIXME: join
@@ -144,6 +177,7 @@ func decodeCounterApplyResponse(fut raft.ApplyFuture) (int64, error) {
 }
 
 func (s *Server) Incr() (int64, error) {
+	// TODO: forward
 	// TODO: tweak value
 	timeout := time.Duration(10) * time.Second
 	fut := s.raft.Apply(IncrCounterCommand.Encode(), timeout)
@@ -152,6 +186,7 @@ func (s *Server) Incr() (int64, error) {
 }
 
 func (s *Server) Decr() (int64, error) {
+	// TODO: forward
 	// TODO: tweak value
 	timeout := time.Duration(10) * time.Second
 	fut := s.raft.Apply(DecrCounterCommand.Encode(), timeout)
@@ -160,5 +195,6 @@ func (s *Server) Decr() (int64, error) {
 }
 
 func (s *Server) Current() (int64, error) {
+	// TODO: check consistency
 	return s.fsm.Counter().Current(), nil
 }
