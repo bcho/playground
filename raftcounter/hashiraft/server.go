@@ -1,6 +1,7 @@
 package hashiraft
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"time"
@@ -21,9 +22,9 @@ func DefaultConfig() *Config {
 	}
 }
 
-// CreateNode creates a raft counter node from config.
-func (c *Config) CreateNode() (*Node, error) {
-	node := &Node{
+// CreateServer creates a raft counter node from config.
+func (c *Config) CreateServer() (*Server, error) {
+	node := &Server{
 		config: c,
 	}
 	if node.config == nil {
@@ -37,7 +38,8 @@ func (c *Config) CreateNode() (*Node, error) {
 	return node, nil
 }
 
-type Node struct {
+// Server implements a raft server node.
+type Server struct {
 	config *Config
 
 	fsm        *fsmServer
@@ -45,14 +47,14 @@ type Node struct {
 	raftConfig *raft.Config
 }
 
-func (n *Node) setupRaft() error {
+func (s *Server) setupRaft() error {
 	var err error
 
-	n.raftConfig = raft.DefaultConfig()
-	n.raftConfig.ProtocolVersion = raft.ProtocolVersionMax
+	s.raftConfig = raft.DefaultConfig()
+	s.raftConfig.ProtocolVersion = raft.ProtocolVersionMax
 
 	// setup transport layer
-	bindAddr := n.config.RaftBindAddr
+	bindAddr := s.config.RaftBindAddr
 	advertiseAddr, err := net.ResolveTCPAddr("tcp", bindAddr)
 	if err != nil {
 		return err
@@ -69,10 +71,10 @@ func (n *Node) setupRaft() error {
 		return err
 	}
 
-	n.raftConfig.LocalID = raft.ServerID(transport.LocalAddr())
+	s.raftConfig.LocalID = raft.ServerID(transport.LocalAddr())
 
 	// setup fsm
-	n.fsm = newFSM()
+	s.fsm = newFSM()
 
 	// setup stores
 	var (
@@ -98,21 +100,21 @@ func (n *Node) setupRaft() error {
 			bootstrapConfig := raft.Configuration{
 				Servers: []raft.Server{
 					raft.Server{
-						ID:      n.raftConfig.LocalID,
+						ID:      s.raftConfig.LocalID,
 						Address: transport.LocalAddr(),
 					},
 				},
 			}
-			err = raft.BootstrapCluster(n.raftConfig, log, stable, snap, transport, bootstrapConfig)
+			err = raft.BootstrapCluster(s.raftConfig, log, stable, snap, transport, bootstrapConfig)
 			if err != nil {
 				return err
 			}
 		}
 	}
 
-	n.raft, err = raft.NewRaft(
-		n.raftConfig,
-		n.fsm,
+	s.raft, err = raft.NewRaft(
+		s.raftConfig,
+		s.fsm,
 		log,
 		stable,
 		snap,
@@ -123,4 +125,36 @@ func (n *Node) setupRaft() error {
 	}
 
 	return nil
+}
+
+func decodeCounterApplyResponse(fut raft.ApplyFuture) (int64, error) {
+	err := fut.Error()
+	if err != nil {
+		return 0, err
+	}
+	value, ok := fut.Response().(int64)
+	if !ok {
+		return 0, fmt.Errorf("invalid response value: %v", fut.Response())
+	}
+	return value, nil
+}
+
+func (s *Server) Incr() (int64, error) {
+	// TODO: tweak value
+	timeout := time.Duration(10) * time.Second
+	fut := s.raft.Apply(IncrCounterCommand.Encode(), timeout)
+
+	return decodeCounterApplyResponse(fut)
+}
+
+func (s *Server) Decr() (int64, error) {
+	// TODO: tweak value
+	timeout := time.Duration(10) * time.Second
+	fut := s.raft.Apply(DecrCounterCommand.Encode(), timeout)
+
+	return decodeCounterApplyResponse(fut)
+}
+
+func (s *Server) Current() (int64, error) {
+	return s.fsm.Counter().Current(), nil
 }
