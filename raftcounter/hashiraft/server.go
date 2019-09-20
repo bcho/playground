@@ -3,6 +3,7 @@ package hashiraft
 import (
 	"fmt"
 	"net"
+	"net/rpc"
 	"os"
 	"path/filepath"
 	"time"
@@ -22,6 +23,9 @@ type Config struct {
 	// RaftBindAddr defines the bind address for raft protocol.
 	RaftBindAddr string
 
+	// RPCBindAddr defines the bind address for rpc service.
+	RPCBindAddr string
+
 	// DataDir defines the data dir for the server.
 	DataDir string
 }
@@ -30,19 +34,25 @@ type Config struct {
 func DefaultConfig() *Config {
 	return &Config{
 		RaftBindAddr: "127.0.0.1:3333",
+		RPCBindAddr:  "127.0.0.1:13333",
 	}
 }
 
 // CreateServer creates a raft counter node from config.
 func (c *Config) CreateServer() (*Server, error) {
 	node := &Server{
-		config: c,
+		config:    c,
+		rpcServer: rpc.NewServer(),
 	}
 	if node.config == nil {
 		node.config = DefaultConfig()
 	}
 
 	if err := node.setupRaft(); err != nil {
+		return nil, err
+	}
+
+	if err := node.setupRPC(); err != nil {
 		return nil, err
 	}
 
@@ -56,6 +66,9 @@ type Server struct {
 	fsm        *fsmServer
 	raft       *raft.Raft
 	raftConfig *raft.Config
+
+	rpcServer   *rpc.Server
+	rpcListener net.Listener
 }
 
 func (s *Server) setupRaft() error {
@@ -156,6 +169,24 @@ func (s *Server) setupRaft() error {
 	if err != nil {
 		return err
 	}
+
+	return nil
+}
+
+func (s *Server) setupRPC() error {
+	s.rpcServer.Register(&Cluster{s})
+	s.rpcServer.Register(&Counter{s})
+
+	addr, err := net.ResolveTCPAddr("tcp", s.config.RPCBindAddr)
+	if err != nil {
+		return err
+	}
+	ln, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		return err
+	}
+	s.rpcListener = ln
+	go s.rpcServer.Accept(s.rpcListener)
 
 	return nil
 }

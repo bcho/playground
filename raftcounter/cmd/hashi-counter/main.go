@@ -10,6 +10,7 @@ import (
 
 var (
 	flagRaftBindAddr = flag.String("raft-addr", "127.0.0.1:3333", "raft communication address")
+	flagRPCBindAddr  = flag.String("rpc-addr", "127.0.0.1:13333", "rpc service address")
 	flagDataDir      = flag.String("data-dir", "", "data storage dir, defaults to use in-memory storage")
 )
 
@@ -18,6 +19,7 @@ func main() {
 
 	config := hashiraft.DefaultConfig()
 	config.RaftBindAddr = *flagRaftBindAddr
+	config.RPCBindAddr = *flagRPCBindAddr
 	config.DataDir = *flagDataDir
 
 	server, err := config.CreateServer()
