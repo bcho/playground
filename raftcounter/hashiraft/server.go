@@ -1,6 +1,7 @@
 package hashiraft
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/rpc"
@@ -20,6 +21,9 @@ const (
 
 // Config defines the configurations for the counter node.
 type Config struct {
+	// Bootstrap defines if the server needed to bootstrap on startup.
+	Bootstrap bool
+
 	// RaftBindAddr defines the bind address for raft protocol.
 	RaftBindAddr string
 
@@ -28,11 +32,15 @@ type Config struct {
 
 	// DataDir defines the data dir for the server.
 	DataDir string
+
+	// JoinAddress defines the join address for the server node.
+	JoinAddress string
 }
 
 // DefaultConfig creates default config.
 func DefaultConfig() *Config {
 	return &Config{
+		Bootstrap:    false,
 		RaftBindAddr: "127.0.0.1:3333",
 		RPCBindAddr:  "127.0.0.1:13333",
 	}
@@ -63,9 +71,10 @@ func (c *Config) CreateServer() (*Server, error) {
 type Server struct {
 	config *Config
 
-	fsm        *fsmServer
-	raft       *raft.Raft
-	raftConfig *raft.Config
+	fsm               *fsmServer
+	raft              *raft.Raft
+	raftConfig        *raft.Config
+	raftAdvertiseAddr *net.TCPAddr
 
 	rpcServer   *rpc.Server
 	rpcListener net.Listener
@@ -76,6 +85,7 @@ func (s *Server) setupRaft() error {
 
 	s.raftConfig = raft.DefaultConfig()
 	s.raftConfig.ProtocolVersion = raft.ProtocolVersionMax
+	s.raftConfig.ShutdownOnRemove = true
 
 	// setup transport layer
 	bindAddr := s.config.RaftBindAddr
@@ -94,8 +104,9 @@ func (s *Server) setupRaft() error {
 	if err != nil {
 		return err
 	}
+	s.raftAdvertiseAddr = advertiseAddr
 
-	s.raftConfig.LocalID = raft.ServerID(transport.LocalAddr())
+	s.raftConfig.LocalID = raft.ServerID(s.config.RPCBindAddr)
 
 	// setup fsm
 	s.fsm = newFSM()
@@ -136,8 +147,8 @@ func (s *Server) setupRaft() error {
 		}
 	}
 
-	// FIXME: join
-	{
+	if s.config.Bootstrap {
+		// no need to join, try do bootstrap as leader
 		hasState, err := raft.HasExistingState(log, stable, snap)
 		if err != nil {
 			return err
@@ -187,12 +198,18 @@ func (s *Server) setupRPC() error {
 	}
 	s.rpcListener = ln
 	go s.rpcServer.Accept(s.rpcListener)
+	// TODO: logger
+	fmt.Printf("rpc server listening at: %s\n", addr)
 
 	return nil
 }
 
 func (s *Server) Leader() string {
 	return string(s.raft.Leader())
+}
+
+func (s *Server) isLeader() bool {
+	return string(s.raft.Leader()) == s.config.RaftBindAddr
 }
 
 func decodeCounterApplyResponse(fut raft.ApplyFuture) (int64, error) {
@@ -208,7 +225,12 @@ func decodeCounterApplyResponse(fut raft.ApplyFuture) (int64, error) {
 }
 
 func (s *Server) Incr() (int64, error) {
-	// TODO: forward
+	if !s.isLeader() {
+		rv := &CounterIncrResp{}
+		err := s.rpc("Counter.Incr", &CounterIncrArgs{}, rv)
+		return rv.CurrentValue, err
+	}
+
 	// TODO: tweak value
 	timeout := time.Duration(10) * time.Second
 	fut := s.raft.Apply(IncrCounterCommand.Encode(), timeout)
@@ -217,7 +239,12 @@ func (s *Server) Incr() (int64, error) {
 }
 
 func (s *Server) Decr() (int64, error) {
-	// TODO: forward
+	if !s.isLeader() {
+		rv := &CounterDecrResp{}
+		err := s.rpc("Counter.Decr", &CounterDecrArgs{}, rv)
+		return rv.CurrentValue, err
+	}
+
 	// TODO: tweak value
 	timeout := time.Duration(10) * time.Second
 	fut := s.raft.Apply(DecrCounterCommand.Encode(), timeout)
@@ -228,4 +255,74 @@ func (s *Server) Decr() (int64, error) {
 func (s *Server) Current() (int64, error) {
 	// TODO: check consistency
 	return s.fsm.Counter().Current(), nil
+}
+
+func (s *Server) rpc(method string, args interface{}, reply interface{}) error {
+	if s.raft == nil {
+		return errors.New("not ready")
+	}
+
+	rpcAddr := s.config.JoinAddress
+
+	configFut := s.raft.GetConfiguration()
+	if err := configFut.Error(); err != nil {
+		return err
+	}
+	leaderServerAddr := s.raft.Leader()
+	if leaderServerAddr != "" {
+		for _, server := range configFut.Configuration().Servers {
+			if server.Address == leaderServerAddr {
+				// NOTE: use server id as rpc address
+				rpcAddr = string(server.ID)
+				break
+			}
+		}
+	}
+
+	client, err := rpc.Dial("tcp", rpcAddr)
+	if err != nil {
+		return err
+	}
+	return client.Call(method, args, reply)
+}
+
+func (s *Server) TryJoin() error {
+	if s.config.JoinAddress == "" {
+		// nothing to do
+		return nil
+	}
+
+	args := &ClusterJoinArgs{
+		ServerID:   s.config.RPCBindAddr,
+		ServerAddr: s.config.RaftBindAddr,
+	}
+	reply := struct{}{}
+	if err := s.rpc("Cluster.Join", args, &reply); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Server) Stop() error {
+	if s.raft == nil {
+		return nil
+	}
+
+	if s.isLeader() {
+		fut := s.raft.RemoveServer(s.raftConfig.LocalID, 0, 0).(raft.Future)
+		if err := fut.Error(); err != nil {
+			return nil
+		}
+	} else {
+		reply := struct{}{}
+		if err := s.rpc("Cluster.Leave", s.config.RPCBindAddr, &reply); err != nil {
+			// ignore for now
+			// TODO: logger
+			fmt.Printf("leave cluster failed: %v\n", err)
+		}
+	}
+
+	fut := s.raft.Shutdown()
+	return fut.Error()
 }
