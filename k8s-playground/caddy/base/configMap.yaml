@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: caddyfile
+data:
+  Caddyfile: |
+    :80 {
+      gzip
+      root /public
+      browse
+    }
+
+  hello.html: |
+    <h1>hello</h1>
