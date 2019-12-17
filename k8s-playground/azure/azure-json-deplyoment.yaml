@@ -1,0 +1,28 @@
+# 1. apply
+# 2. copy azure.json from /etc/kubernetes/azure.json
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: azure-json-export
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: azure-json-export
+  template:
+    metadata:
+      labels:
+        app: azure-json-export
+    spec:
+      containers:
+        - name: stub
+          image: nginx:1.17-alpine
+          volumeMounts:
+            - mountPath: /etc/kubernetes/
+              name: azure-cred
+      volumes:
+        - name: azure-cred
+          hostPath:
+            path: /etc/kubernetes
+            type: Directory
