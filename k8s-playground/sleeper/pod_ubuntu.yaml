@@ -1,0 +1,9 @@
+kind: Pod
+apiVersion: v1
+metadata:
+  name: sleeper-ubuntu
+spec:
+  containers:
+    - name: sleeper
+      image: library/ubuntu:18.04
+      command: ['bash', '-c', 'sleep 1000d']
