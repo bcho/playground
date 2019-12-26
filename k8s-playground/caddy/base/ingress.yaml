@@ -1,0 +1,12 @@
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: caddy
+spec:
+  rules:
+    - host: caddy.playground.build4.fun
+      http:
+        paths:
+          - backend:
+              serviceName: caddy
+              servicePort: 80
