@@ -5,8 +5,39 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>webtorrent demo</title>
+    <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
 </head>
 <body>
-    <h1>hello, world</h1>
+    <h1>hello, world!</h1>
 </body>
+<script>
+    (function() {
+        console.log('hello, world');
+
+        const client = new WebTorrent();
+
+        // NOTE: when running on web page, we need a tracker with web torrent enabled...
+        const torrentId = '<torrent-id>&tr=wss%3A%2F%2Fspacetradersapi-chatbox.herokuapp.com%3A443%2Fannounce%0A&tr=wss%3A%2F%2Fpeertube.cpy.re%3A443%2Ftracker%2Fsocket';
+
+        console.log('loading torrent id', torrentId);
+
+        client.on('error', function(err) {
+            console.log('bt client error', err);
+        });
+
+        client.add(torrentId, function (torrent) {
+            console.log('torrent loaded', torrent);
+            // Torrents can contain many files. Let's use the .mp4 file
+            const file = torrent.files.find(function (file) {
+                console.log(file);
+                return file.name.endsWith('.mp4');
+            });
+
+            console.log(file);
+
+            // Display the file by adding it to the DOM. Supports video, audio, image, etc. files
+            file.appendTo('body');
+        });
+    })();
+</script>
 </html>
